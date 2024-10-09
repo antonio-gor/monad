@@ -12,6 +12,7 @@ pygame.display.set_caption("Conway's Game of Life")
 screen = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE))
 clock = pygame.time.Clock()
 running = True
+paused = False
 dt = 0
 
 ROWS = SCREEN_SIZE // GRID_SIZE
@@ -21,10 +22,10 @@ CENTER_Y = int(COLS / 2)
 
 
 class Cell:
-    def __init__(self, x: int, y: int, random_init: bool = True) -> None:
+    def __init__(self, x: int, y: int, randomize: bool = False) -> None:
         self.x = x
         self.y = y
-        self.alive = random.choice([True, False]) if random_init else False
+        self.alive = random.choice([True, False]) if randomize else False
 
     def live(self) -> None:
         self.alive = True
@@ -37,8 +38,9 @@ class Cell:
 
 
 class Grid:
-    def __init__(self) -> None:
-        self.cells = [[Cell(x, y) for y in range(COLS)] for x in range(ROWS)]
+    def __init__(self, randomize: bool = False) -> None:
+        self.randomize = randomize
+        self.cells = [[Cell(x, y, randomize) for y in range(COLS)] for x in range(ROWS)]
 
     def update(self) -> None:
         new_grid = [[Cell(x, y) for y in range(COLS)] for x in range(ROWS)]
@@ -70,10 +72,17 @@ class Grid:
                     neighbors += 1  # found living cell
         return neighbors
 
+    def toggle_cell(self, x, y):
+        cell = self.cells[x][y]
+        if cell.is_alive():
+            cell.die()
+        else:
+            cell.live()
+
     def draw(self) -> None:
         for row in range(ROWS):
             for col in range(COLS):
-                color = "white" if self.cells[row][col].is_alive() else "black"
+                color = "pink" if self.cells[row][col].is_alive() else "black"
                 pygame.draw.rect(
                     screen,
                     color,
@@ -81,7 +90,7 @@ class Grid:
                 )
 
 
-grid = Grid()
+grid = Grid(randomize=False)
 
 # Glider
 grid.cells[CENTER_Y - 1][CENTER_X].alive = True
@@ -95,9 +104,20 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                paused = not paused
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_pos = pygame.mouse.get_pos()
+            col = mouse_pos[0] // GRID_SIZE
+            row = mouse_pos[1] // GRID_SIZE
+            if 0 <= col < COLS and 0 <= row < ROWS:
+                grid.toggle_cell(row, col)
+
 
     # Update and draw the grid
-    grid.update()
+    if not paused:
+        grid.update()
     screen.fill("black")
     grid.draw()
 
@@ -105,8 +125,6 @@ while running:
     pygame.display.flip()
 
     # limits FPS to 60
-    # dt is delta time in seconds since last frame, used for framerate-
-    # independent physics.
     dt = clock.tick(10) / 1000
 
 pygame.quit()
