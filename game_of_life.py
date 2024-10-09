@@ -1,6 +1,9 @@
 import pygame
 import random
 
+# Main settings
+FPS = 60  # Main FPS for updates and user interaction
+RENDER_FPS = 10  # FPS for rendering
 GRID_SIZE = 6
 SCREEN_SIZE = 600
 BUFFER = 0.9
@@ -90,7 +93,7 @@ class Grid:
                 )
 
 
-grid = Grid(randomize=False)
+grid = Grid(randomize=True)
 
 # Glider
 grid.cells[CENTER_Y - 1][CENTER_X].alive = True
@@ -98,6 +101,9 @@ grid.cells[CENTER_Y][CENTER_X + 1].alive = True
 grid.cells[CENTER_Y + 1][CENTER_X + 1].alive = True
 grid.cells[CENTER_Y + 1][CENTER_X].alive = True
 grid.cells[CENTER_Y + 1][CENTER_X - 1].alive = True
+
+frame_count = 0  # Counter to track frame progression
+render_interval = FPS // RENDER_FPS  # Calculate how often to render based on FPS
 
 while running:
     # poll for events
@@ -114,17 +120,17 @@ while running:
             if 0 <= col < COLS and 0 <= row < ROWS:
                 grid.toggle_cell(row, col)
 
+    # Render the grid every `render_interval` frames
+    frame_count += 1
+    if frame_count >= render_interval:
+        if not paused:
+            grid.update()
+        screen.fill("black")
+        grid.draw()
+        pygame.display.flip()
+        frame_count = 0
 
-    # Update and draw the grid
-    if not paused:
-        grid.update()
-    screen.fill("black")
-    grid.draw()
-
-    # flip() the display to put your work on screen
-    pygame.display.flip()
-
-    # limits FPS to 60
-    dt = clock.tick(10) / 1000
+    # Control FPS
+    dt = clock.tick(FPS) / 1000
 
 pygame.quit()
