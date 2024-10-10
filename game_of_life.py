@@ -6,7 +6,7 @@ import random
 FPS = 60  # Main FPS for updates and user interaction
 RENDER_FPS = 20  # FPS for rendering
 GRID_SIZE = 6
-SCREEN_SIZE = 600
+SCREEN_SIZE = 800
 BUFFER = 0.9
 CELL_SIZE = GRID_SIZE * BUFFER
 
@@ -37,11 +37,11 @@ class Cell:
 
     def live(self) -> None:
         self.alive = True
-        self.age_alive += 30
+        self.age_alive += 35
 
     def die(self) -> None:
         self.alive = False
-        self.age_alive = max(0, self.age_alive - 15)
+        self.age_alive = max(0, self.age_alive - 8)
 
     def is_alive(self) -> bool:
         return self.alive
@@ -67,10 +67,11 @@ class Grid:
             cell.die()  # Underpopulation
         elif cell.is_alive() and living_neighbors in [2, 3]:
             cell.live()  # Stays alive
-        elif cell.is_alive() and living_neighbors > 3:
-            cell.die()  # Overpopulation
         elif not cell.is_alive() and living_neighbors == 3:
             cell.live()  # Reproduction
+        elif cell.is_alive() and living_neighbors > 3:
+            cell.die()  # Overpopulation
+
         else:
             cell.die()
 
@@ -87,10 +88,11 @@ class Grid:
 
     def toggle_cell(self, x, y):
         cell = self.cells[x][y]
-        cell.age_alive = 0
         if cell.is_alive():
+            cell.age_alive = 0
             cell.die()
         else:
+            cell.age_alive = 100
             cell.live()
 
     def draw(self) -> None:
@@ -101,9 +103,10 @@ class Grid:
                 if cell.is_alive():  # brighter white the longer they live
                     color_value = min(cell.age_alive, 255)
                     color = pygame.Color(color_value, color_value, color_value)
-                elif cell.age_alive > 0:  # bright red, fade to black over time
+                elif cell.age_alive > 0:
                     color_value = min(cell.age_alive, 255)
-                    color = pygame.Color(color_value, 0, 0)
+                    color = pygame.Color(color_value, 0, 0)  # red fading over time
+                    # color = pygame.Color(color_value, color_value, color_value)
                 pygame.draw.rect(
                     screen,
                     color,
@@ -142,7 +145,7 @@ while running:
         if not paused or (paused and next_step):
             grid.update()
             next_step = False
-        screen.fill("black")
+        screen.fill(pygame.Color(42, 42, 42))
         grid.draw()
         pygame.display.flip()
         frame_count = 0
