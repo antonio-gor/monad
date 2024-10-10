@@ -1,9 +1,10 @@
+import copy
 import pygame
 import random
 
 # Main settings
 FPS = 60  # Main FPS for updates and user interaction
-RENDER_FPS = 10  # FPS for rendering
+RENDER_FPS = 20  # FPS for rendering
 GRID_SIZE = 6
 SCREEN_SIZE = 600
 BUFFER = 0.9
@@ -16,7 +17,10 @@ screen = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE))
 clock = pygame.time.Clock()
 running = True
 paused = False
+next_step = False
 dt = 0
+frame_count = 0  # Counter to track frame progression
+render_interval = FPS // RENDER_FPS  # Calculate how often to render based on FPS
 
 ROWS = SCREEN_SIZE // GRID_SIZE
 COLS = SCREEN_SIZE // GRID_SIZE
@@ -29,12 +33,15 @@ class Cell:
         self.x = x
         self.y = y
         self.alive = random.choice([True, False]) if randomize else False
+        self.age_alive = 0
 
     def live(self) -> None:
         self.alive = True
+        self.age_alive += 30
 
     def die(self) -> None:
         self.alive = False
+        self.age_alive = max(0, self.age_alive - 15)
 
     def is_alive(self) -> bool:
         return self.alive
@@ -46,10 +53,11 @@ class Grid:
         self.cells = [[Cell(x, y, randomize) for y in range(COLS)] for x in range(ROWS)]
 
     def update(self) -> None:
-        new_grid = [[Cell(x, y) for y in range(COLS)] for x in range(ROWS)]
+        new_grid = [
+            [copy.deepcopy(self.cells[x][y]) for y in range(COLS)] for x in range(ROWS)
+        ]
         for row in range(ROWS):
             for col in range(COLS):
-                new_grid[row][col].alive = self.cells[row][col].alive
                 self.update_cell(new_grid[row][col])
         self.cells = new_grid
 
@@ -63,6 +71,8 @@ class Grid:
             cell.die()  # Overpopulation
         elif not cell.is_alive() and living_neighbors == 3:
             cell.live()  # Reproduction
+        else:
+            cell.die()
 
     def find_living_neighbors(self, cell: Cell) -> int:
         neighbors = 0
@@ -77,6 +87,7 @@ class Grid:
 
     def toggle_cell(self, x, y):
         cell = self.cells[x][y]
+        cell.age_alive = 0
         if cell.is_alive():
             cell.die()
         else:
@@ -85,7 +96,14 @@ class Grid:
     def draw(self) -> None:
         for row in range(ROWS):
             for col in range(COLS):
-                color = "pink" if self.cells[row][col].is_alive() else "black"
+                cell = self.cells[row][col]
+                color = pygame.Color(10, 10, 10)
+                if cell.is_alive():  # brighter white the longer they live
+                    color_value = min(cell.age_alive, 255)
+                    color = pygame.Color(color_value, color_value, color_value)
+                elif cell.age_alive > 0:  # bright red, fade to black over time
+                    color_value = min(cell.age_alive, 255)
+                    color = pygame.Color(color_value, 0, 0)
                 pygame.draw.rect(
                     screen,
                     color,
@@ -93,17 +111,8 @@ class Grid:
                 )
 
 
+# Start simulation
 grid = Grid(randomize=True)
-
-# Glider
-grid.cells[CENTER_Y - 1][CENTER_X].alive = True
-grid.cells[CENTER_Y][CENTER_X + 1].alive = True
-grid.cells[CENTER_Y + 1][CENTER_X + 1].alive = True
-grid.cells[CENTER_Y + 1][CENTER_X].alive = True
-grid.cells[CENTER_Y + 1][CENTER_X - 1].alive = True
-
-frame_count = 0  # Counter to track frame progression
-render_interval = FPS // RENDER_FPS  # Calculate how often to render based on FPS
 
 while running:
     # poll for events
@@ -113,6 +122,13 @@ while running:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 paused = not paused
+            if event.key == pygame.K_r:
+                grid = Grid(randomize=True)
+            if event.key == pygame.K_c:
+                grid = Grid(randomize=False)
+                paused = True
+            if event.key == pygame.K_n:
+                next_step = True
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
             col = mouse_pos[0] // GRID_SIZE
@@ -123,8 +139,9 @@ while running:
     # Render the grid every `render_interval` frames
     frame_count += 1
     if frame_count >= render_interval:
-        if not paused:
+        if not paused or (paused and next_step):
             grid.update()
+            next_step = False
         screen.fill("black")
         grid.draw()
         pygame.display.flip()
