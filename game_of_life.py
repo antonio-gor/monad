@@ -1,3 +1,8 @@
+"""
+https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life
+https://web.stanford.edu/class/sts145/Library/life.pdf
+"""
+
 import copy
 import pygame
 import random
