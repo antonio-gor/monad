@@ -8,7 +8,7 @@ import pygame
 import random
 
 # Main settings
-MODE = "original"  # original, color_one, color_two
+MODE = "color_one"  # original, color_one, color_two
 FPS = 60  # Main FPS for updates and user interaction
 RENDER_FPS = 20  # FPS for rendering
 GRID_SIZE = 6
