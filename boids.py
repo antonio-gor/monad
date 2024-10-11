@@ -11,11 +11,14 @@ from typing import Any, List
 FPS = 60
 SCREEN_SIZE = 900
 EDGE_WRAPPING = True
-BOID_SIZE = 6
+BOID_SIZE = 2
 BOID_COLOR = pygame.Color("brown")
 BOID_SPEED = 2
-PROTECTED_RANGE = 40
-SEPARATION_WEIGHT = 0.5
+PROTECTED_RANGE = 10
+VISUAL_RANGE = 50
+SEPARATION_WEIGHT = 0.2
+ALIGNMENT_WEIGHT = 0.6
+COHESION_WEIGHT = 0.4
 
 # pygame setup
 pygame.init()
@@ -53,7 +56,7 @@ class Boid:
             if self.y < 0 or self.y > SCREEN_SIZE:
                 self.direction = -self.direction
 
-    def separation_perception(self, boids: List[Any]) -> None:
+    def collision_avoidance(self, boids: List[Any]) -> None:
         total_repulsion_x = 0
         total_repulsion_y = 0
         for other_boid in boids:
@@ -70,6 +73,46 @@ class Boid:
             self.direction = (
                 1 - SEPARATION_WEIGHT
             ) * self.direction + SEPARATION_WEIGHT * repulsion_angle
+
+    def velocity_matching(self, boids: List[Any]) -> None:
+        total_attraction_x = 0
+        total_attraction_y = 0
+        for other_boid in boids:
+            if other_boid.id == self.id:
+                continue
+
+            distance = math.hypot(other_boid.x - self.x, other_boid.y - self.y)
+            if PROTECTED_RANGE <= distance <= VISUAL_RANGE:
+                total_attraction_x += other_boid.x
+                total_attraction_y += other_boid.y
+
+        if total_attraction_x or total_attraction_y:
+            attraction_angle = math.atan2(total_attraction_y, total_attraction_x)
+            self.direction = (
+                1 - ALIGNMENT_WEIGHT
+            ) * self.direction + ALIGNMENT_WEIGHT * attraction_angle
+
+    def flock_centering(self, boids: List[Any]) -> None:
+        neighboring_x = 0
+        neighboring_y = 0
+        neighboring_boids = 0
+        for other_boid in boids:
+            if other_boid.id == self.id:
+                continue
+
+            distance = math.hypot(other_boid.x - self.x, other_boid.y - self.y)
+            if PROTECTED_RANGE <= distance <= VISUAL_RANGE:
+                neighboring_x += other_boid.x
+                neighboring_y += other_boid.y
+                neighboring_boids += 1
+
+        if neighboring_x or neighboring_y:
+            neighboring_x_avg = neighboring_x / neighboring_boids
+            neighboring_y_avg = neighboring_y / neighboring_boids
+            centering_angle = math.atan2(neighboring_y_avg, neighboring_x_avg)
+            self.direction = (
+                1 - COHESION_WEIGHT
+            ) * self.direction + COHESION_WEIGHT * centering_angle
 
     def move(self) -> None:
         self.x += math.cos(self.direction) * self.speed
@@ -92,7 +135,7 @@ class Boid:
 
 
 class Flock:
-    def __init__(self, n: int = 50) -> None:
+    def __init__(self, n: int = 200) -> None:
         self.boids = [
             Boid(random.randint(0, SCREEN_SIZE), random.randint(0, SCREEN_SIZE))
             for _ in range(n)
@@ -101,7 +144,9 @@ class Flock:
     def update(self, surface: pygame.Surface) -> None:
         for boid in self.boids:
             boid.boundary_perception()
-            boid.separation_perception(self.boids)
+            boid.collision_avoidance(self.boids)
+            boid.velocity_matching(self.boids)
+            boid.flock_centering(self.boids)
             boid.move()
             boid.draw(surface)
 
