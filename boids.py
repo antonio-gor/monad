@@ -64,9 +64,9 @@ class Boid:
                 self.y = 0
         else:
             if self.x < 0 or self.x > SCREEN_SIZE:
-                self.angle = math.pi - self.angle
+                self.vx = -self.vx
             if self.y < 0 or self.y > SCREEN_SIZE:
-                self.angle = -self.angle
+                self.vy = -self.vy
 
     def separation(self, boids: List["Boid"]) -> None:
         neighbors = 0
