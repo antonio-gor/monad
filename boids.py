@@ -10,7 +10,7 @@ from typing import List
 
 FPS = 60
 SCREEN_SIZE = 900
-EDGE_WRAPPING = True
+EDGE_WRAPPING = False
 BOID_SIZE = 3
 BOID_COLOR = pygame.Color("brown")
 BOID_SPEED = 2
@@ -100,8 +100,8 @@ class Boid:
             if other.id == self.id:
                 continue
 
-            dx = other.x  - self.x
-            dy = other.y  - self.y
+            dx = other.x - self.x
+            dy = other.y - self.y
             distance = math.hypot(dx, dy)
             if PROTECTED_RANGE <= distance <= VISUAL_RANGE:
                 neighbors += 1
