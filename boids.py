@@ -38,7 +38,7 @@ class Boid:
         self.vx = random.uniform(-1, 1)
         self.vy = random.uniform(-1, 1)
         self.angle = math.atan2(self.vy, self.vx)
-        self.size = BOID_SIZE + random.uniform(-BOID_SIZE / 4, BOID_SIZE / 4)
+        self.size = BOID_SIZE + random.uniform(-BOID_SIZE / 2, BOID_SIZE / 2)
         self.id = random.randint(0, 1000000)
         self.selected = False
 
