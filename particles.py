@@ -8,7 +8,7 @@ SCREEN_SIZE_X = 1280
 SCREEN_SIZE_Y = 720
 PARTICLE_COUNT = 200
 VELOCITY_SCALER = 2
-COLOR_MODE = "velocity"  # by mass or velocity
+COLOR_MODE = "velocity"  # by "mass" or "velocity"
 MASS_COLORS = {3: "red", 4: "green", 5: "blue", 6: "purple"}
 
 
@@ -25,22 +25,26 @@ class Particle:
         return math.hypot(self.velocity[1], self.velocity[0])
 
     def move(self):
+        # Boundary collision
         if self.position[0] < 0 or self.position[0] > SCREEN_SIZE_X:
             self.velocity[0] = -self.velocity[0]
         if self.position[1] < 0 or self.position[1] > SCREEN_SIZE_Y:
             self.velocity[1] = -self.velocity[1]
 
-        self.position[0] = self.position[0] + self.velocity[0] * VELOCITY_SCALER
-        self.position[1] = self.position[1] + self.velocity[1] * VELOCITY_SCALER
+        # Update position based on velocity
+        self.position[0] += self.velocity[0] * VELOCITY_SCALER
+        self.position[1] += self.velocity[1] * VELOCITY_SCALER
         self.speed = self.get_speed()
 
     def draw(self, surface: pygame.Surface, top_speed: float) -> None:
-        color = self.color
         if COLOR_MODE == "velocity":
-            speed = math.hypot(self.velocity[1], self.velocity[0])
-            speed_normalized = speed / top_speed
+            speed_normalized = self.speed / top_speed
             speed_color = min(255, int(255 * speed_normalized))
             color = pygame.Color(speed_color, 0, 255 - speed_color)
+        else:
+            color = pygame.Color(self.color)
+        
+        # Draw particle
         pygame.draw.circle(
             surface=surface,
             color=color,
@@ -65,16 +69,12 @@ class System:
         self.particles.append(particle)
 
     def get_top_speed(self) -> float:
-        top_speed = 0.01
-        for particle in self.particles:
-            if particle.speed > top_speed:
-                top_speed = particle.speed
-        return top_speed
+        return max(particle.speed for particle in self.particles)
 
     def update(self, surface: pygame.Surface) -> None:
+        self.top_speed = self.get_top_speed()
         for particle in self.particles:
             particle.move()
-            self.top_speed = self.get_top_speed()
             particle.draw(surface, self.top_speed)
 
 
@@ -92,6 +92,9 @@ while running:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_r:
                 system = System(size=PARTICLE_COUNT)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_c:
+                COLOR_MODE = "velocity" if COLOR_MODE == "mass" else "mass"
 
     screen.fill("black")
 
