@@ -69,7 +69,7 @@ class System:
         self.particles.append(particle)
 
     def get_top_speed(self) -> float:
-        return max(particle.speed for particle in self.particles)
+        return max(0.0001, max(particle.speed for particle in self.particles))
 
     def update(self, surface: pygame.Surface) -> None:
         self.top_speed = self.get_top_speed()
