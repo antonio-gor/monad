@@ -4,6 +4,8 @@
 #include <vector>
 #include <unordered_map>
 #include <tuple>
+#include <iostream>
+#include <iomanip>
 
 #define SCREEN_SIZE_X 1280
 #define SCREEN_SIZE_Y 720
@@ -273,6 +275,8 @@ int main() {
 
     while (window.isOpen()) {
         sf::Event event;
+        sf::Clock clock;
+
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
                 window.close();
@@ -290,6 +294,11 @@ int main() {
         window.clear(sf::Color::Black);
         system.update(window);
         window.display();
+
+        sf::Time elapsed = clock.restart();
+        float fps = 1.0f / elapsed.asSeconds();
+        std::cout << "fps: " << std::fixed << std::setprecision(2) << fps << "\r";
+        std::cout.flush();
     }
 
     return 0;
