@@ -6,29 +6,72 @@ from uuid import uuid4
 
 SCREEN_SIZE_X = 1280
 SCREEN_SIZE_Y = 720
-PARTICLE_COUNT = 300
+FPS = 30
+PARTICLE_COUNT = 500
 PARTICLE_SIZE = 2
 VELOCITY_SCALER = 1
 SPEED_LIMIT = 6
 DRAW_VECTORS = False
 INIT_STATIC = True
 COLOR_MODE = "type"  # by "type" or "velocity"
-TYPE_COLORS = {
-    0: pygame.Color("cyan"),
-    1: pygame.Color("orange"),
-    2: pygame.Color("magenta"),
-    3: pygame.Color("green"),
-}
-TYPE_INTERACTIONS = [
-    [1, 1, 0, 0],
-    [1, 1, 0, 0],
-    [0, 0, -1, 2],
-    [0.2, 0, 2, -1]
-]
-INTERACTION_RADIUS = 125
+INTERACTION_RADIUS = 100
 REPULSION_RADIUS = 20
 REPULSION_SCALAR = 1
 ATTRACTION_SCALAR = 4
+# TYPE_COLORS = {
+#     0: pygame.Color("cyan"),
+#     1: pygame.Color("orange"),
+#     2: pygame.Color("magenta"),
+#     3: pygame.Color("green"),
+# }
+# TYPE_INTERACTIONS = [
+#     [1, 1, 0.2, 0.2],
+#     [1, 1, 0.2, 0.2],
+#     [0.2, 0.2, -1, 2],
+#     [0.2, 0.2, 2, -1]
+# ]
+TYPE_COLORS = {
+    0: pygame.Color("green"),
+    1: pygame.Color("cyan"),
+    2: pygame.Color("yellow"),
+    3: pygame.Color("magenta"),
+    4: pygame.Color("orange"),
+}
+TYPE_INTERACTIONS = [
+    [1, 1, 1, 1, 1],
+    [1, -1, 0, 0, 0],
+    [1, 0, -1, 0, 0],
+    [1, 0, 0, -1, 0],
+    [1, 0, 0, 0, -1],
+]
+
+
+class SpatialGrid:
+    """Reference: http://gameprogrammingpatterns.com/spatial-partition.html"""
+
+    def __init__(self, cell_size):
+        self.cell_size = cell_size
+        self.cells = {}
+
+    def add_particle(self, particle):
+        cell_coords = self.get_cell_coords(particle.position)
+        self.cells.setdefault(cell_coords, []).append(particle)
+
+    def get_cell_coords(self, position):
+        return (
+            int(position[0] // self.cell_size),
+            int(position[1] // self.cell_size),
+        )
+
+    def get_neighboring_particles(self, particle):
+        neighboring_particles = []
+        cell_x, cell_y = self.get_cell_coords(particle.position)
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                neighbor_cell = (cell_x + dx, cell_y + dy)
+                if neighbor_cell in self.cells:
+                    neighboring_particles.extend(self.cells[neighbor_cell])
+        return neighboring_particles
 
 
 class Particle:
@@ -43,18 +86,18 @@ class Particle:
     def get_speed(self) -> float:
         return math.hypot(self.velocity[1], self.velocity[0])
 
+    def move(self, particles: List["Particle"]) -> None:
+        self.boundary_detection()
+        self.neighbor_interactions(particles)
+        self.cap_velocity()
+        self.update_position()
+
     def cap_velocity(self) -> None:
         speed = self.get_speed()
         if speed > SPEED_LIMIT:
             scaling_factor = SPEED_LIMIT / speed
             self.velocity[0] *= scaling_factor
             self.velocity[1] *= scaling_factor
-
-    def move(self, particles: List["Particle"]) -> None:
-        self.boundary_detection()
-        self.neighbor_interactions(particles)
-        self.cap_velocity()
-        self.update_position()
 
     def boundary_detection(self) -> None:
         if self.position[0] < 0:
@@ -70,8 +113,9 @@ class Particle:
             self.position[1] = SCREEN_SIZE_Y
             self.velocity[1] = -self.velocity[1]
 
-    def neighbor_interactions(self, particles: List["Particle"]) -> None:
-        for other in particles:
+    def neighbor_interactions(self, grid: SpatialGrid) -> None:
+        neighboring_particles = grid.get_neighboring_particles(self)
+        for other in neighboring_particles:
             if self.id == other.id:
                 continue
 
@@ -128,6 +172,7 @@ class System:
     def __init__(self, size: int = 50, init_static: bool = False) -> None:
         self.particles = []
         self.init_static = init_static
+        self.grid = SpatialGrid(cell_size=INTERACTION_RADIUS)
         for _ in range(size):
             self.create_particle()
 
@@ -141,11 +186,15 @@ class System:
             velocity=velocity,
             type=randint(min(TYPE_COLORS.keys()), max(TYPE_COLORS.keys())),
         )
+        self.grid.add_particle(particle)
         self.particles.append(particle)
 
     def update(self, surface: pygame.Surface) -> None:
+        self.grid = SpatialGrid(cell_size=INTERACTION_RADIUS)
         for particle in self.particles:
-            particle.move(self.particles)
+            self.grid.add_particle(particle)
+        for particle in self.particles:
+            particle.move(self.grid)
             particle.draw(surface)
 
 
@@ -177,6 +226,7 @@ while running:
 
     pygame.display.flip()
 
-    clock.tick(60)
+    clock.tick(FPS)
+    print(f"fps: {clock.get_fps()}", end="\r")
 
 pygame.quit()
