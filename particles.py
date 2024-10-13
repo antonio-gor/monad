@@ -7,45 +7,46 @@ from uuid import uuid4
 SCREEN_SIZE_X = 1280
 SCREEN_SIZE_Y = 720
 FPS = 30
-PARTICLE_COUNT = 450
+PARTICLE_COUNT = 750
 PARTICLE_SIZE = 2
 VELOCITY_SCALER = 1
 SPEED_LIMIT = 6
 DRAW_VECTORS = False
-INIT_STATIC = True
+INIT_STATIC = False
 COLOR_MODE = "type"  # by "type" or "velocity"
 INTERACTION_RADIUS = 100
 REPULSION_RADIUS = 20
-REPULSION_SCALAR = 1
-ATTRACTION_SCALAR = 4
-TYPE_COLORS = {
-    0: pygame.Color("cyan"),
-    1: pygame.Color("orange"),
-    2: pygame.Color("magenta"),
-    3: pygame.Color("green"),
-    4: pygame.Color("red"),
-}
-TYPE_INTERACTIONS = [
-    [1, 1, 0.2, 0.2, 0],
-    [1, 1, 0.2, 0.2, 0],
-    [0.2, 0.2, -1, 2, 0],
-    [0.2, 0.2, 2, -1, 0],
-    [0.5, 0.5, -0.2, -0.2, -0.5]
-]
+REPULSION_FACTOR = 1
+ATTRACTION_FACTOR = 4
+FRICTION_COEFFICIENT = 1
 # TYPE_COLORS = {
-#     0: pygame.Color("green"),
-#     1: pygame.Color("cyan"),
-#     2: pygame.Color("yellow"),
-#     3: pygame.Color("magenta"),
-#     4: pygame.Color("orange"),
+#     0: pygame.Color("cyan"),
+#     1: pygame.Color("orange"),
+#     2: pygame.Color("magenta"),
+#     3: pygame.Color("green"),
+#     4: pygame.Color("red"),
 # }
 # TYPE_INTERACTIONS = [
-#     [1, 1, 1, 1, 1],
-#     [1, -1, 0, 0, 0],
-#     [1, 0, -1, 0, 0],
-#     [1, 0, 0, -1, 0],
-#     [1, 0, 0, 0, -1],
+#     [1, 1, 0.2, 0.2, 0],
+#     [1, 1, 0.2, 0.2, 0],
+#     [0.2, 0.2, -1, 2, 0],
+#     [0.2, 0.2, 2, -1, 0],
+#     [0.5, 0.5, -0.2, -0.2, -0.5]
 # ]
+TYPE_COLORS = {
+    0: pygame.Color("green"),
+    1: pygame.Color("cyan"),
+    2: pygame.Color("yellow"),
+    3: pygame.Color("magenta"),
+    # 4: pygame.Color("orange"),
+}
+TYPE_INTERACTIONS = [
+    [1, 1, 1, 1, 1],
+    [1, -1, 0, 0, 0],
+    [1, 0, -1, 0, 0],
+    [1, 0, 0, -1, 0],
+    # [1, 0, 0, 0, -1],
+]
 
 
 class SpatialGrid:
@@ -95,6 +96,8 @@ class Particle:
         self.update_position()
 
     def cap_velocity(self) -> None:
+        self.velocity[0] *= FRICTION_COEFFICIENT
+        self.velocity[1] *= FRICTION_COEFFICIENT
         speed = self.get_speed()
         if speed > SPEED_LIMIT:
             scaling_factor = SPEED_LIMIT / speed
@@ -130,12 +133,12 @@ class Particle:
             # repulsive force
             if distance <= REPULSION_RADIUS:
                 force_magnitude = distance / REPULSION_RADIUS - 1
-                force_magnitude *= REPULSION_SCALAR
+                force_magnitude *= REPULSION_FACTOR
             # attractive force
             elif REPULSION_RADIUS < distance < INTERACTION_RADIUS:
                 force_magnitude = (
                     distance / INTERACTION_RADIUS
-                ) * ATTRACTION_SCALAR - 1
+                ) * ATTRACTION_FACTOR - 1
                 attraction_factor = TYPE_INTERACTIONS[self.type][other.type]
                 force_magnitude *= attraction_factor
 
