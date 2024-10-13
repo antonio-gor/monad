@@ -15,20 +15,20 @@ INIT_STATIC = True
 COLOR_MODE = "type"  # by "type" or "velocity"
 TYPE_COLORS = {
     0: pygame.Color("cyan"),
-    1: pygame.Color("yellow"),
+    1: pygame.Color("orange"),
     2: pygame.Color("magenta"),
     3: pygame.Color("green"),
 }
 TYPE_INTERACTIONS = [
-    [0, 1, 0, 0],
-    [1, 0, 1, 0],
-    [0, 1, 0, 0],
-    [1, 1, 1, 1]
+    [1, 1, 0, 0],
+    [1, 1, 0, 0],
+    [0, 0, -1, 2],
+    [0.2, 0, 2, -1]
 ]
 INTERACTION_RADIUS = 125
 REPULSION_RADIUS = 20
 REPULSION_SCALAR = 1
-ATTRACTION_SCALAR = 2
+ATTRACTION_SCALAR = 4
 
 
 class Particle:
@@ -83,7 +83,8 @@ class Particle:
 
             # repulsive force
             if distance <= REPULSION_RADIUS:
-                force_magnitude = (distance / REPULSION_RADIUS - 1) * REPULSION_SCALAR
+                force_magnitude = distance / REPULSION_RADIUS - 1
+                force_magnitude *= REPULSION_SCALAR
             # attractive force
             elif REPULSION_RADIUS < distance < INTERACTION_RADIUS:
                 force_magnitude = (
