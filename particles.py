@@ -11,13 +11,20 @@ PARTICLE_SIZE = 2
 VELOCITY_SCALER = 1
 SPEED_LIMIT = 6
 DRAW_VECTORS = False
+INIT_STATIC = True
 COLOR_MODE = "type"  # by "type" or "velocity"
 TYPE_COLORS = {
     0: pygame.Color("cyan"),
     1: pygame.Color("yellow"),
     2: pygame.Color("magenta"),
+    3: pygame.Color("green"),
 }
-TYPE_INTERACTIONS = [[0, 0, 1], [1, 0, 0], [1, 1, 1]]
+TYPE_INTERACTIONS = [
+    [0, 1, 0, 0],
+    [1, 0, 1, 0],
+    [0, 1, 0, 0],
+    [1, 1, 1, 1]
+]
 INTERACTION_RADIUS = 125
 REPULSION_RADIUS = 20
 REPULSION_SCALAR = 1
@@ -146,7 +153,7 @@ screen = pygame.display.set_mode((SCREEN_SIZE_X, SCREEN_SIZE_Y))
 clock = pygame.time.Clock()
 running = True
 
-system = System(size=PARTICLE_COUNT)
+system = System(size=PARTICLE_COUNT, init_static=INIT_STATIC)
 
 while running:
     for event in pygame.event.get():
@@ -154,7 +161,7 @@ while running:
             running = False
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_r:
-                system = System(size=PARTICLE_COUNT)
+                system = System(size=PARTICLE_COUNT, init_static=INIT_STATIC)
             if event.key == pygame.K_c:
                 COLOR_MODE = "velocity" if COLOR_MODE == "type" else "type"
             if event.key == pygame.K_v:
