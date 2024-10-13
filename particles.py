@@ -1,13 +1,13 @@
 import math
 import pygame
 from random import randint, uniform
-from typing import List
+from typing import List, Tuple
 from uuid import uuid4
 
 SCREEN_SIZE_X = 1280
 SCREEN_SIZE_Y = 720
 FPS = 30
-PARTICLE_COUNT = 500
+PARTICLE_COUNT = 450
 PARTICLE_SIZE = 2
 VELOCITY_SCALER = 1
 SPEED_LIMIT = 6
@@ -18,52 +18,54 @@ INTERACTION_RADIUS = 100
 REPULSION_RADIUS = 20
 REPULSION_SCALAR = 1
 ATTRACTION_SCALAR = 4
-# TYPE_COLORS = {
-#     0: pygame.Color("cyan"),
-#     1: pygame.Color("orange"),
-#     2: pygame.Color("magenta"),
-#     3: pygame.Color("green"),
-# }
-# TYPE_INTERACTIONS = [
-#     [1, 1, 0.2, 0.2],
-#     [1, 1, 0.2, 0.2],
-#     [0.2, 0.2, -1, 2],
-#     [0.2, 0.2, 2, -1]
-# ]
 TYPE_COLORS = {
-    0: pygame.Color("green"),
-    1: pygame.Color("cyan"),
-    2: pygame.Color("yellow"),
-    3: pygame.Color("magenta"),
-    4: pygame.Color("orange"),
+    0: pygame.Color("cyan"),
+    1: pygame.Color("orange"),
+    2: pygame.Color("magenta"),
+    3: pygame.Color("green"),
+    4: pygame.Color("red"),
 }
 TYPE_INTERACTIONS = [
-    [1, 1, 1, 1, 1],
-    [1, -1, 0, 0, 0],
-    [1, 0, -1, 0, 0],
-    [1, 0, 0, -1, 0],
-    [1, 0, 0, 0, -1],
+    [1, 1, 0.2, 0.2, 0],
+    [1, 1, 0.2, 0.2, 0],
+    [0.2, 0.2, -1, 2, 0],
+    [0.2, 0.2, 2, -1, 0],
+    [0.5, 0.5, -0.2, -0.2, -0.5]
 ]
+# TYPE_COLORS = {
+#     0: pygame.Color("green"),
+#     1: pygame.Color("cyan"),
+#     2: pygame.Color("yellow"),
+#     3: pygame.Color("magenta"),
+#     4: pygame.Color("orange"),
+# }
+# TYPE_INTERACTIONS = [
+#     [1, 1, 1, 1, 1],
+#     [1, -1, 0, 0, 0],
+#     [1, 0, -1, 0, 0],
+#     [1, 0, 0, -1, 0],
+#     [1, 0, 0, 0, -1],
+# ]
 
 
 class SpatialGrid:
     """Reference: http://gameprogrammingpatterns.com/spatial-partition.html"""
 
-    def __init__(self, cell_size):
+    def __init__(self, cell_size: int) -> None:
         self.cell_size = cell_size
         self.cells = {}
 
-    def add_particle(self, particle):
+    def add_particle(self, particle: "Particle") -> None:
         cell_coords = self.get_cell_coords(particle.position)
         self.cells.setdefault(cell_coords, []).append(particle)
 
-    def get_cell_coords(self, position):
+    def get_cell_coords(self, position: List[int]) -> Tuple[int, int]:
         return (
             int(position[0] // self.cell_size),
             int(position[1] // self.cell_size),
         )
 
-    def get_neighboring_particles(self, particle):
+    def get_neighboring_particles(self, particle: "Particle") -> List:
         neighboring_particles = []
         cell_x, cell_y = self.get_cell_coords(particle.position)
         for dx in [-1, 0, 1]:
