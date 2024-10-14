@@ -18,12 +18,12 @@
 #define PARTICLE_SIZE 1
 #define VELOCITY_SCALER 1
 #define SPEED_LIMIT 5
-#define INTERACTION_RADIUS 200
+#define INTERACTION_RADIUS 300
 #define REPULSION_RADIUS 15
 #define REPULSION_FACTOR 1
-#define ATTRACTION_FACTOR 4
-#define FRICTION_COEFFICIENT 0.99
-#define INIT_STATIC false
+#define ATTRACTION_FACTOR 20
+#define FRICTION_COEFFICIENT 0.85
+#define INIT_STATIC true
 bool DRAW_VECTORS = false;
 bool COLOR_MODE_TYPE = true;  // true for "type", false for "velocity"
 
@@ -39,13 +39,13 @@ sf::Color getColorByType(int type) {
     }
 }
 __constant__ float TYPE_INTERACTIONS[7][7] = {
-    {1, 1, 0.2, 0.2, 0, 0, 0},
-    {1, 1, 0.2, 0.2, 0, 0, 0},
-    {0.2, 0.2, -1, 2, 0, 0, 0},
-    {0.2, 0.2, 2, -1, 0, 0, 0},
-    {0.5, 0.5, -0.2, -0.2, -0.5, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0},
+    {1, -1, 0, 0, 0.2, 0, 0},
+    {1, 1, 0, 0, -0.2, 0, 0},
+    {0, 0.2, 1.5, 0, 0, 0, 0.5},
+    {0, 0, 0, 1, 0, 0, 0},
+    {0.2, -0.2, 0, 0, 1, 0, 0},
+    {0, 0, 0, 0, 0, -1, 2},
+    {0, 0, 0, 0, 0, -0.2, 1},
 };
 // __constant__ float TYPE_INTERACTIONS[7][7] = {
 //     {1, -1, 0.2, 0, 0, -0.2, -0.2},
@@ -146,7 +146,7 @@ void Particle::draw(sf::RenderWindow& window) {
     if (DRAW_VECTORS) {
         sf::Vertex line[] = {
             sf::Vertex(sf::Vector2f(position[0], position[1]), sf::Color::Red),
-            sf::Vertex(sf::Vector2f(position[0] + velocity[0] * 8, position[1] + velocity[1] * 8), sf::Color::Red)
+            sf::Vertex(sf::Vector2f(position[0] + velocity[0] * 4, position[1] + velocity[1] * 4), sf::Color::Red)
         };
         window.draw(line, 2, sf::Lines);
     }
@@ -190,8 +190,8 @@ __global__ void updateParticlesKernel(float* positions, float* velocities, int* 
             }
             // Attractive force
             else if (REPULSION_RADIUS < distance && distance < INTERACTION_RADIUS) {
-                forceMagnitude = (distance / INTERACTION_RADIUS) * ATTRACTION_FACTOR - 1;
-                forceMagnitude *= TYPE_INTERACTIONS[type][otherType];
+                forceMagnitude = 1 / (distance * distance);
+                forceMagnitude *= ATTRACTION_FACTOR * TYPE_INTERACTIONS[type][otherType];
             }
         
             velX += forceMagnitude * cosf(angle);
