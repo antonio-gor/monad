@@ -9,8 +9,10 @@
 #include <iostream>
 #include <iomanip>
 
-#define SCREEN_SIZE_X 1920
-#define SCREEN_SIZE_Y 1080
+// #define SCREEN_SIZE_X 1920
+// #define SCREEN_SIZE_Y 1080
+#define SCREEN_SIZE_X 1280
+#define SCREEN_SIZE_Y 720
 #define FPS 30
 #define PARTICLE_COUNT 5000
 #define PARTICLE_SIZE 1
@@ -37,13 +39,13 @@ sf::Color getColorByType(int type) {
     }
 }
 __constant__ float TYPE_INTERACTIONS[7][7] = {
-    {1, 0.2, 0, 0, 0, 0, 0},
-    {0.2, 1, 0, 0, 0, 0, 0},
-    {0, 0, 1, 0, 0, 0, 0},
-    {0, 0, 0, 1, 0, 0, 0},
-    {0, 0, 0, 0, 1, 0, 0},
-    {0, 0, 0, 0, 0, 1, 0},
-    {0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 0.2, 0.2, 0, 0, 0},
+    {1, 1, 0.2, 0.2, 0, 0, 0},
+    {0.2, 0.2, -1, 2, 0, 0, 0},
+    {0.2, 0.2, 2, -1, 0, 0, 0},
+    {0.5, 0.5, -0.2, -0.2, -0.5, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0},
 };
 // __constant__ float TYPE_INTERACTIONS[7][7] = {
 //     {1, -1, 0.2, 0, 0, -0.2, -0.2},
@@ -331,6 +333,16 @@ int main() {
     System system;
     sf::Clock clock;
 
+    sf::Font font;
+    font.loadFromFile("../arial.ttf");
+    sf::Text fps_text;
+    fps_text.setFont(font);
+    fps_text.setCharacterSize(10); // in pixels, not points
+    // fps_text.setStyle(sf::Text::Bold);
+    fps_text.setFillColor(sf::Color::White);
+    fps_text.setPosition(5, 5);
+    std::string fps_value;
+
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -348,13 +360,21 @@ int main() {
         }
 
         window.clear(sf::Color::Black);
-        system.update(window);
-        window.display();
 
+        // Run simulation
+        system.update(window);
+
+        // Log FPS in command line
         sf::Time elapsed = clock.restart();
         float fps = 1.0f / elapsed.asSeconds();
         std::cout << "fps: " << std::fixed << std::setprecision(2) << fps << "\r";
         std::cout.flush();
+
+        // Display FPS in window
+        fps_value  = std::to_string(fps);
+        fps_text.setString(fps_value);
+        window.draw(fps_text);
+        window.display();
     }
 
     return 0;
