@@ -9,23 +9,25 @@
 #include <iostream>
 #include <iomanip>
 
-// #define SCREEN_SIZE_X 1920
-// #define SCREEN_SIZE_Y 1080
-#define SCREEN_SIZE_X 1280
-#define SCREEN_SIZE_Y 720
+#define SCREEN_SIZE_X 1920
+#define SCREEN_SIZE_Y 1080
+// #define SCREEN_SIZE_X 1280
+// #define SCREEN_SIZE_Y 720
 #define FPS 30
 #define PARTICLE_COUNT 5000
 #define PARTICLE_SIZE 1
-#define VELOCITY_SCALER 1
-#define SPEED_LIMIT 5
-#define INTERACTION_RADIUS 300
-#define REPULSION_RADIUS 15
-#define REPULSION_FACTOR 1
-#define ATTRACTION_FACTOR 20
-#define FRICTION_COEFFICIENT 0.85
 #define INIT_STATIC true
+#define SPEED_LIMIT 5
+#define VELOCITY_FACTOR 1
+#define FRICTION_FACTOR 0.85
+#define ATTRACTION_RADIUS 300
+#define REPULSION_RADIUS 15
+float ATTRACTION_FACTOR = 20;
+float REPULSION_FACTOR = 1;
+bool SHOW_INFO = true;
 bool DRAW_VECTORS = false;
 bool COLOR_MODE_TYPE = true;  // true for "type", false for "velocity"
+float PAN_SPEED = 20.0f;
 
 sf::Color getColorByType(int type) {
     switch(type) {
@@ -41,11 +43,11 @@ sf::Color getColorByType(int type) {
 __constant__ float TYPE_INTERACTIONS[7][7] = {
     {1, -1, 0, 0, 0.2, 0, 0},
     {1, 1, 0, 0, -0.2, 0, 0},
-    {0, 0.2, 1.5, 0, 0, 0, 0.5},
-    {0, 0, 0, 1, 0, 0, 0},
+    {0, 0.1, 1, -0.3, 0, 0, 0.5},
+    {0, 0, 0.2, 1, 0, 0, 0},
     {0.2, -0.2, 0, 0, 1, 0, 0},
-    {0, 0, 0, 0, 0, -1, 2},
-    {0, 0, 0, 0, 0, -0.2, 1},
+    {-0.1, 0, 0, 0, 0, -1, 2},
+    {-0.1, 0, -0.2, 0, 0, -0.2, 1},
 };
 // __constant__ float TYPE_INTERACTIONS[7][7] = {
 //     {1, -1, 0.2, 0, 0, -0.2, -0.2},
@@ -132,23 +134,35 @@ Particle::Particle(std::vector<float> position, std::vector<float> velocity, int
 }
 
 void Particle::draw(sf::RenderWindow& window) {
-    sf::CircleShape shape(PARTICLE_SIZE);
-    shape.setPosition(position[0], position[1]);
+    sf::Color shape_color = color;
+
     if (!COLOR_MODE_TYPE) {
         float speedNormalized = speed / SPEED_LIMIT;
         int speedColor = std::min(255, static_cast<int>(255 * speedNormalized));
-        shape.setFillColor(sf::Color(255, 255 - speedColor, 255 - speedColor));
-    } else {
-        shape.setFillColor(color);
+        shape_color = sf::Color(255, 255 - speedColor, 255 - speedColor);
     }
-    window.draw(shape);
 
     if (DRAW_VECTORS) {
+        const float minVectorLength = 5.0f;
+        const float maxVectorLength = 20.0f;
+
+        float velocityLength = std::sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
+        float normalizedX = velocity[0] / velocityLength;
+        float normalizedY = velocity[1] / velocityLength;
+        float vectorLength = std::max(minVectorLength, std::min(velocityLength * 4, maxVectorLength));
+        float cappedVectorX = normalizedX * vectorLength;
+        float cappedVectorY = normalizedY * vectorLength;
+
         sf::Vertex line[] = {
-            sf::Vertex(sf::Vector2f(position[0], position[1]), sf::Color::Red),
-            sf::Vertex(sf::Vector2f(position[0] + velocity[0] * 4, position[1] + velocity[1] * 4), sf::Color::Red)
+            sf::Vertex(sf::Vector2f(position[0], position[1]), shape_color),
+            sf::Vertex(sf::Vector2f(position[0] + cappedVectorX, position[1] + cappedVectorY), sf::Color::Red)
         };
-        window.draw(line, 2, sf::Lines);
+        window.draw(line, 4, sf::Lines);
+    } else {
+        sf::CircleShape shape(PARTICLE_SIZE);
+        shape.setPosition(position[0], position[1]);
+        shape.setFillColor(shape_color);
+        window.draw(shape);
     }
 }
 
@@ -160,7 +174,7 @@ void Particle::updateFromGPU(float* positions, float* velocities, int idx) {
     speed = std::hypot(velocity[0], velocity[1]);
 }
 
-__global__ void updateParticlesKernel(float* positions, float* velocities, int* types, int numParticles) {
+__global__ void updateParticlesKernel(float* positions, float* velocities, int* types, int numParticles, float attraction_factor, float repulsion_factor) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < numParticles) {
         float posX = positions[idx * 2];
@@ -186,12 +200,12 @@ __global__ void updateParticlesKernel(float* positions, float* velocities, int* 
             // Repulsive force
             if (distance <= REPULSION_RADIUS) {
                 forceMagnitude = distance / REPULSION_RADIUS - 1;
-                forceMagnitude *= REPULSION_FACTOR;
+                forceMagnitude *= repulsion_factor;
             }
             // Attractive force
-            else if (REPULSION_RADIUS < distance && distance < INTERACTION_RADIUS) {
+            else if (REPULSION_RADIUS < distance && distance < ATTRACTION_RADIUS) {
                 forceMagnitude = 1 / (distance * distance);
-                forceMagnitude *= ATTRACTION_FACTOR * TYPE_INTERACTIONS[type][otherType];
+                forceMagnitude *= attraction_factor * TYPE_INTERACTIONS[type][otherType];
             }
         
             velX += forceMagnitude * cosf(angle);
@@ -224,25 +238,25 @@ __global__ void updateParticlesKernel(float* positions, float* velocities, int* 
         }
 
         // Update position
-        positions[idx * 2] = posX + velX * VELOCITY_SCALER;
-        positions[idx * 2 + 1] = posY + velY * VELOCITY_SCALER;
+        positions[idx * 2] = posX + velX * VELOCITY_FACTOR;
+        positions[idx * 2 + 1] = posY + velY * VELOCITY_FACTOR;
 
-        velocities[idx * 2] = velX * FRICTION_COEFFICIENT;
-        velocities[idx * 2 + 1] = velY * FRICTION_COEFFICIENT;
+        velocities[idx * 2] = velX * FRICTION_FACTOR;
+        velocities[idx * 2 + 1] = velY * FRICTION_FACTOR;
     }
 }
 
 class System {
 public:
     System(int size = PARTICLE_COUNT, bool initStatic = INIT_STATIC);
-    void update(sf::RenderWindow& window);
+    void update(sf::RenderWindow& window, float attraction_factor, float repulsion_factor);
 
 private:
     std::vector<Particle> particles;
     bool initStatic;
 
     void createParticle(std::vector<float> position = std::vector<float>());
-    void updateParticlesOnGPU();
+    void updateParticlesOnGPU(float attraction_factor, float repulsion_factor);
 };
 
 System::System(int size, bool initStatic) : initStatic(initStatic) {
@@ -274,7 +288,7 @@ void System::createParticle(std::vector<float> position) {
     particles.emplace_back(position, velocity, type);
 }
 
-void System::updateParticlesOnGPU() {
+void System::updateParticlesOnGPU(float attraction_factor, float repulsion_factor) {
     int numParticles = particles.size();
     float* d_positions;
     float* d_velocities;
@@ -302,7 +316,7 @@ void System::updateParticlesOnGPU() {
     // Launch kernel to update particles
     int blockSize = 256;
     int numBlocks = (numParticles + blockSize - 1) / blockSize;
-    updateParticlesKernel<<<numBlocks, blockSize>>>(d_positions, d_velocities, d_types, numParticles);
+    updateParticlesKernel<<<numBlocks, blockSize>>>(d_positions, d_velocities, d_types, numParticles, attraction_factor, repulsion_factor);
 
     // Copy data back from device to host
     cudaMemcpy(positions.data(), d_positions, sizeof(float) * 2 * numParticles, cudaMemcpyDeviceToHost);
@@ -319,42 +333,74 @@ void System::updateParticlesOnGPU() {
     cudaFree(d_types);
 }
 
-void System::update(sf::RenderWindow& window) {
-    updateParticlesOnGPU();
+void System::update(sf::RenderWindow& window, float attraction_factor, float repulsion_factor) {
+    updateParticlesOnGPU(attraction_factor, repulsion_factor);
     for (auto& particle : particles) {
         particle.draw(window);
     }
 }
 
 int main() {
+    System system;
+    float attraction_factor = ATTRACTION_FACTOR;
+    float repulsion_factor = REPULSION_FACTOR;
+    int world_width = SCREEN_SIZE_X;
+    int world_height = SCREEN_SIZE_Y;
+
+    int iterations = 0;
+    sf::Clock clock;
     sf::RenderWindow window(sf::VideoMode(SCREEN_SIZE_X, SCREEN_SIZE_Y), "Particle System");
+    sf::View view = window.getView();
     window.setFramerateLimit(FPS);
 
-    System system;
-    sf::Clock clock;
-
+    // Info text
     sf::Font font;
     font.loadFromFile("../arial.ttf");
-    sf::Text fps_text;
-    fps_text.setFont(font);
-    fps_text.setCharacterSize(10); // in pixels, not points
-    // fps_text.setStyle(sf::Text::Bold);
-    fps_text.setFillColor(sf::Color::White);
-    fps_text.setPosition(5, 5);
-    std::string fps_value;
+    sf::Text paramText;
+    paramText.setFont(font);
+    paramText.setPosition(10, 10);
+    paramText.setCharacterSize(15);
+    paramText.setFillColor(sf::Color::White);
 
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
                 window.close();
-            } else if (event.type == sf::Event::KeyPressed) {
+            }
+            if (event.type == sf::Event::KeyPressed) {
                 if (event.key.code == sf::Keyboard::R) {
                     system = System(PARTICLE_COUNT, INIT_STATIC);
+                    attraction_factor = ATTRACTION_FACTOR;
+                    repulsion_factor = REPULSION_FACTOR;
+                    world_width = SCREEN_SIZE_X;
+                    world_height = SCREEN_SIZE_Y;
+                } else if (event.key.code == sf::Keyboard::I) {
+                    SHOW_INFO = !SHOW_INFO;
                 } else if (event.key.code == sf::Keyboard::C) {
                     COLOR_MODE_TYPE = !COLOR_MODE_TYPE;
                 } else if (event.key.code == sf::Keyboard::V) {
                     DRAW_VECTORS = !DRAW_VECTORS;
+                } else if (event.key.code == sf::Keyboard::W) {
+                    view.move(0, -PAN_SPEED);
+                } else if (event.key.code == sf::Keyboard::S) {
+                    view.move(0, PAN_SPEED);
+                } else if (event.key.code == sf::Keyboard::A) {
+                    view.move(-PAN_SPEED, 0);
+                } else if (event.key.code == sf::Keyboard::D) {
+                    view.move(PAN_SPEED, 0);
+                } else if (event.key.code == sf::Keyboard::E) {
+                    view.zoom(0.95);
+                } else if (event.key.code == sf::Keyboard::Q) {
+                    view.zoom(1.05);
+                } else if (event.key.code == sf::Keyboard::Up) {
+                    attraction_factor += 1;
+                } else if (event.key.code == sf::Keyboard::Down) {
+                    attraction_factor -= 1;
+                } else if (event.key.code == sf::Keyboard::Left) {
+                    repulsion_factor -= 0.1;
+                } else if (event.key.code == sf::Keyboard::Right) {
+                    repulsion_factor += 0.1;
                 }
             }
         }
@@ -362,19 +408,28 @@ int main() {
         window.clear(sf::Color::Black);
 
         // Run simulation
-        system.update(window);
+        system.update(window, attraction_factor, repulsion_factor);
 
-        // Log FPS in command line
-        sf::Time elapsed = clock.restart();
-        float fps = 1.0f / elapsed.asSeconds();
-        std::cout << "fps: " << std::fixed << std::setprecision(2) << fps << "\r";
-        std::cout.flush();
+        // Display information
+        if (SHOW_INFO) {
+            window.setView(window.getDefaultView());
+            std::ostringstream oss;
+            sf::Time elapsed = clock.restart();
+            float fps = 1.0f / elapsed.asSeconds();
+            oss << "Particle Count: " << PARTICLE_COUNT << "\n";
+            oss << "Velocity Factor: " << VELOCITY_FACTOR << "\n";
+            oss << "Friction Factor: " << FRICTION_FACTOR << "\n";
+            oss << "Attraction Factor: " << attraction_factor << "\n";
+            oss << "Repulsion Factor: " << repulsion_factor << "\n";
+            oss << "Iterations: " << iterations << "\n";
+            oss << "FPS: " << std::fixed << std::setprecision(0) << fps << "\n";
+            paramText.setString(oss.str());
+            window.draw(paramText);
+        }
 
-        // Display FPS in window
-        fps_value  = std::to_string(fps);
-        fps_text.setString(fps_value);
-        window.draw(fps_text);
+        window.setView(view);
         window.display();
+        iterations++;
     }
 
     return 0;
