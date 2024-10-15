@@ -7,18 +7,18 @@ from uuid import uuid4
 SCREEN_SIZE_X = 1280
 SCREEN_SIZE_Y = 720
 FPS = 30
-PARTICLE_COUNT = 750
+PARTICLE_COUNT = 600
 PARTICLE_SIZE = 2
 VELOCITY_SCALER = 1
 SPEED_LIMIT = 6
 DRAW_VECTORS = False
-INIT_STATIC = False
+INIT_STATIC = True
 COLOR_MODE = "type"  # by "type" or "velocity"
-INTERACTION_RADIUS = 100
-REPULSION_RADIUS = 20
+INTERACTION_RADIUS = 200
+REPULSION_RADIUS = 10
 REPULSION_FACTOR = 1
-ATTRACTION_FACTOR = 4
-FRICTION_COEFFICIENT = 1
+ATTRACTION_FACTOR = 20
+FRICTION_COEFFICIENT = 0.85
 # TYPE_COLORS = {
 #     0: pygame.Color("cyan"),
 #     1: pygame.Color("orange"),
@@ -38,14 +38,14 @@ TYPE_COLORS = {
     1: pygame.Color("cyan"),
     2: pygame.Color("yellow"),
     3: pygame.Color("magenta"),
-    # 4: pygame.Color("orange"),
+    4: pygame.Color("orange"),
 }
 TYPE_INTERACTIONS = [
-    [1, 1, 1, 1, 1],
-    [1, -1, 0, 0, 0],
-    [1, 0, -1, 0, 0],
-    [1, 0, 0, -1, 0],
-    # [1, 0, 0, 0, -1],
+    [1, 1, 0, 0, 0],
+    [-0.5, 1, 0, 0, 0],
+    [0, 0, 1, 1, 1],
+    [0, 0, 0, 1, 1],
+    [1, 0, -1, 0, 1],
 ]
 
 
@@ -136,11 +136,8 @@ class Particle:
                 force_magnitude *= REPULSION_FACTOR
             # attractive force
             elif REPULSION_RADIUS < distance < INTERACTION_RADIUS:
-                force_magnitude = (
-                    distance / INTERACTION_RADIUS
-                ) * ATTRACTION_FACTOR - 1
-                attraction_factor = TYPE_INTERACTIONS[self.type][other.type]
-                force_magnitude *= attraction_factor
+                force_magnitude = 1 / (distance ** 2) * ATTRACTION_FACTOR
+                force_magnitude *= TYPE_INTERACTIONS[self.type][other.type]
 
             self.velocity[0] += force_magnitude * math.cos(angle)
             self.velocity[1] += force_magnitude * math.sin(angle)
@@ -167,8 +164,8 @@ class Particle:
 
         if DRAW_VECTORS:
             end_position = (
-                self.position[0] + self.velocity[0] * 8,
-                self.position[1] + self.velocity[1] * 8,
+                self.position[0] + self.velocity[0] * 4,
+                self.position[1] + self.velocity[1] * 4,
             )
             pygame.draw.line(surface, "red", self.position, end_position)
 
