@@ -20,7 +20,7 @@
 #define SPEED_LIMIT 5
 #define VELOCITY_FACTOR 1
 #define FRICTION_FACTOR 0.85
-#define ATTRACTION_RADIUS 300
+#define ATTRACTION_RADIUS 2000
 #define REPULSION_RADIUS 15
 float ATTRACTION_FACTOR = 20;
 float REPULSION_FACTOR = 1;
@@ -42,9 +42,9 @@ sf::Color getColorByType(int type) {
 }
 __constant__ float TYPE_INTERACTIONS[7][7] = {
     {1, -1, 0, 0, 0.2, 0, 0},
-    {1, 1, 0, 0, -0.2, 0, 0},
+    {1, 0.5, 0, 0, -0.2, 0, 0},
     {0, 0.1, 1, -0.3, 0, 0, 0.5},
-    {0, 0, 0.2, 1, 0, 0, 0},
+    {0.2, 0.2, 0.2, 1, 0.2, 0.2, 0.2},
     {0.2, -0.2, 0, 0, 1, 0, 0},
     {-0.1, 0, 0, 0, 0, -1, 2},
     {-0.1, 0, -0.2, 0, 0, -0.2, 1},
