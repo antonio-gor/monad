@@ -14,13 +14,13 @@
 // #define SCREEN_SIZE_X 1280
 // #define SCREEN_SIZE_Y 720
 #define FPS 30
-#define PARTICLE_COUNT 5000
+#define PARTICLE_COUNT 50000
 #define PARTICLE_SIZE 1
 #define INIT_STATIC true
 #define SPEED_LIMIT 5
 #define VELOCITY_FACTOR 1
 #define FRICTION_FACTOR 0.85
-#define ATTRACTION_RADIUS 2000
+#define ATTRACTION_RADIUS 100
 #define REPULSION_RADIUS 15
 float ATTRACTION_FACTOR = 20;
 float REPULSION_FACTOR = 1;
@@ -155,7 +155,7 @@ void Particle::draw(sf::RenderWindow& window) {
 
         sf::Vertex line[] = {
             sf::Vertex(sf::Vector2f(position[0], position[1]), shape_color),
-            sf::Vertex(sf::Vector2f(position[0] + cappedVectorX, position[1] + cappedVectorY), sf::Color::Red)
+            sf::Vertex(sf::Vector2f(position[0] + cappedVectorX, position[1] + cappedVectorY), shape_color)
         };
         window.draw(line, 4, sf::Lines);
     } else {
@@ -174,7 +174,7 @@ void Particle::updateFromGPU(float* positions, float* velocities, int idx) {
     speed = std::hypot(velocity[0], velocity[1]);
 }
 
-__global__ void updateParticlesKernel(float* positions, float* velocities, int* types, int numParticles, float attraction_factor, float repulsion_factor) {
+__global__ void updateParticlesKernel(float* positions, float* velocities, int* types, int numParticles, float attraction_factor, float repulsion_factor, int view_width, int view_height) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < numParticles) {
         float posX = positions[idx * 2];
@@ -224,16 +224,16 @@ __global__ void updateParticlesKernel(float* positions, float* velocities, int* 
             posX = 0;
             velX = -velX;
         }
-        if (posX > SCREEN_SIZE_X) {
-            posX = SCREEN_SIZE_X;
+        if (posX > view_width) {
+            posX = view_width;
             velX = -velX;
         }
         if (posY < 0) {
             posY = 0;
             velY = -velY;
         }
-        if (posY > SCREEN_SIZE_Y) {
-            posY = SCREEN_SIZE_Y;
+        if (posY > view_height) {
+            posY = view_height;
             velY = -velY;
         }
 
@@ -248,28 +248,28 @@ __global__ void updateParticlesKernel(float* positions, float* velocities, int* 
 
 class System {
 public:
-    System(int size = PARTICLE_COUNT, bool initStatic = INIT_STATIC);
-    void update(sf::RenderWindow& window, float attraction_factor, float repulsion_factor);
+    System(int view_width = SCREEN_SIZE_X, int view_height = SCREEN_SIZE_Y, int size = PARTICLE_COUNT, bool initStatic = INIT_STATIC);
+    void update(sf::RenderWindow& window, float attraction_factor, float repulsion_factor, int view_width, int view_height);
 
 private:
     std::vector<Particle> particles;
     bool initStatic;
 
-    void createParticle(std::vector<float> position = std::vector<float>());
-    void updateParticlesOnGPU(float attraction_factor, float repulsion_factor);
+    void createParticle(int view_width, int view_height, std::vector<float> position = std::vector<float>());
+    void updateParticlesOnGPU(float attraction_factor, float repulsion_factor, int view_width, int view_height);
 };
 
-System::System(int size, bool initStatic) : initStatic(initStatic) {
+System::System(int view_width, int view_height, int size, bool initStatic) : initStatic(initStatic) {
     for (int i = 0; i < size; ++i) {
-        createParticle();
+        createParticle(view_width, view_height);
     }
 }
 
-void System::createParticle(std::vector<float> position) {
+void System::createParticle(int view_width, int view_height, std::vector<float> position) {
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<> disPosX(0, SCREEN_SIZE_X);
-    std::uniform_real_distribution<> disPosY(0, SCREEN_SIZE_Y);
+    std::uniform_real_distribution<> disPosX(0, view_width);
+    std::uniform_real_distribution<> disPosY(0, view_height);
     std::uniform_real_distribution<> disVel(-1, 1);
 
     if (position.empty()) {
@@ -288,7 +288,7 @@ void System::createParticle(std::vector<float> position) {
     particles.emplace_back(position, velocity, type);
 }
 
-void System::updateParticlesOnGPU(float attraction_factor, float repulsion_factor) {
+void System::updateParticlesOnGPU(float attraction_factor, float repulsion_factor, int view_width, int view_height) {
     int numParticles = particles.size();
     float* d_positions;
     float* d_velocities;
@@ -316,7 +316,7 @@ void System::updateParticlesOnGPU(float attraction_factor, float repulsion_facto
     // Launch kernel to update particles
     int blockSize = 256;
     int numBlocks = (numParticles + blockSize - 1) / blockSize;
-    updateParticlesKernel<<<numBlocks, blockSize>>>(d_positions, d_velocities, d_types, numParticles, attraction_factor, repulsion_factor);
+    updateParticlesKernel<<<numBlocks, blockSize>>>(d_positions, d_velocities, d_types, numParticles, attraction_factor, repulsion_factor, view_width, view_height);
 
     // Copy data back from device to host
     cudaMemcpy(positions.data(), d_positions, sizeof(float) * 2 * numParticles, cudaMemcpyDeviceToHost);
@@ -333,8 +333,8 @@ void System::updateParticlesOnGPU(float attraction_factor, float repulsion_facto
     cudaFree(d_types);
 }
 
-void System::update(sf::RenderWindow& window, float attraction_factor, float repulsion_factor) {
-    updateParticlesOnGPU(attraction_factor, repulsion_factor);
+void System::update(sf::RenderWindow& window, float attraction_factor, float repulsion_factor, int view_width, int view_height) {
+    updateParticlesOnGPU(attraction_factor, repulsion_factor, view_width, view_height);
     for (auto& particle : particles) {
         particle.draw(window);
     }
@@ -344,14 +344,14 @@ int main() {
     System system;
     float attraction_factor = ATTRACTION_FACTOR;
     float repulsion_factor = REPULSION_FACTOR;
-    int world_width = SCREEN_SIZE_X;
-    int world_height = SCREEN_SIZE_Y;
 
     int iterations = 0;
     sf::Clock clock;
     sf::RenderWindow window(sf::VideoMode(SCREEN_SIZE_X, SCREEN_SIZE_Y), "Particle System");
     sf::View view = window.getView();
     window.setFramerateLimit(FPS);
+    int system_width = SCREEN_SIZE_X;
+    int system_height = SCREEN_SIZE_Y;
 
     // Info text
     sf::Font font;
@@ -363,6 +363,10 @@ int main() {
     paramText.setFillColor(sf::Color::White);
 
     while (window.isOpen()) {
+        sf::Vector2f viewSize = view.getSize();
+        system_width = max(system_width, static_cast<int>(viewSize.x));
+        system_height = max(system_height, static_cast<int>(viewSize.y));
+    
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
@@ -370,11 +374,11 @@ int main() {
             }
             if (event.type == sf::Event::KeyPressed) {
                 if (event.key.code == sf::Keyboard::R) {
-                    system = System(PARTICLE_COUNT, INIT_STATIC);
+                    system_width = static_cast<int>(viewSize.x);
+                    system_height = static_cast<int>(viewSize.y);
+                    system = System(system_width, system_height, PARTICLE_COUNT, INIT_STATIC);
                     attraction_factor = ATTRACTION_FACTOR;
                     repulsion_factor = REPULSION_FACTOR;
-                    world_width = SCREEN_SIZE_X;
-                    world_height = SCREEN_SIZE_Y;
                 } else if (event.key.code == sf::Keyboard::I) {
                     SHOW_INFO = !SHOW_INFO;
                 } else if (event.key.code == sf::Keyboard::C) {
@@ -391,8 +395,12 @@ int main() {
                     view.move(PAN_SPEED, 0);
                 } else if (event.key.code == sf::Keyboard::E) {
                     view.zoom(0.95);
+                    // viewSize = view.getSize();
+                    // view.setCenter(viewSize.x/2, viewSize.y/2);
                 } else if (event.key.code == sf::Keyboard::Q) {
                     view.zoom(1.05);
+                    viewSize = view.getSize();
+                    view.setCenter(viewSize.x/2, viewSize.y/2);
                 } else if (event.key.code == sf::Keyboard::Up) {
                     attraction_factor += 1;
                 } else if (event.key.code == sf::Keyboard::Down) {
@@ -408,7 +416,7 @@ int main() {
         window.clear(sf::Color::Black);
 
         // Run simulation
-        system.update(window, attraction_factor, repulsion_factor);
+        system.update(window, attraction_factor, repulsion_factor, system_width, system_height);
 
         // Display information
         if (SHOW_INFO) {
