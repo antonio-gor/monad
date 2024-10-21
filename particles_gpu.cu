@@ -11,33 +11,31 @@
 
 #define SCREEN_SIZE_X 1920
 #define SCREEN_SIZE_Y 1080
-// #define SCREEN_SIZE_X 1280
-// #define SCREEN_SIZE_Y 720
 #define FPS 30
 #define PARTICLE_COUNT 50000
-#define PARTICLE_SIZE 1
+#define PARTICLE_SIZE 2
 #define INIT_STATIC true
 #define SPEED_LIMIT 5
 #define VELOCITY_FACTOR 1
 #define FRICTION_FACTOR 0.85
-#define ATTRACTION_RADIUS 100
+#define ATTRACTION_RADIUS 500
 #define REPULSION_RADIUS 15
 float ATTRACTION_FACTOR = 20;
 float REPULSION_FACTOR = 1;
 bool SHOW_INFO = true;
-bool DRAW_VECTORS = false;
+bool DRAW_VECTORS = true;
 bool COLOR_MODE_TYPE = true;  // true for "type", false for "velocity"
 float PAN_SPEED = 20.0f;
 
 sf::Color getColorByType(int type) {
     switch(type) {
-        case 0: return sf::Color::White;
-        case 1: return sf::Color::Yellow;
-        case 2: return sf::Color::Green;
-        case 3: return sf::Color::Cyan;
-        case 4: return sf::Color::Blue;
-        case 5: return sf::Color::Magenta;
-        default: return sf::Color::Red;
+        case 0: return sf::Color(255, 0, 0); // RED
+        case 1: return sf::Color(255, 127, 0); // ORANGE
+        case 2: return sf::Color(255, 255, 0); // YELLOW
+        case 3: return sf::Color(0, 255, 0); // GREEN
+        case 4: return sf::Color(0, 0, 255); //BLUE
+        case 5: return sf::Color(75, 0, 130); // INDIGO
+        default: return sf::Color(148, 0, 211); // VIOLET
     }
 }
 __constant__ float TYPE_INTERACTIONS[7][7] = {
@@ -50,14 +48,15 @@ __constant__ float TYPE_INTERACTIONS[7][7] = {
     {-0.1, 0, -0.2, 0, 0, -0.2, 1},
 };
 // __constant__ float TYPE_INTERACTIONS[7][7] = {
-//     {1, -1, 0.2, 0, 0, -0.2, -0.2},
-//     {0.2, 1, -0.2, 0, 0, 0, -0.2},
-//     {-0.6, -1, 4, -1, 0, 0, -1},
-//     {0, 0, -1, 0.2, 0, 0, -0.1},
-//     {0.2, 0, 0, -0.2, 0, 0.2, -0.2},
-//     {0, 1, 0.2, 0, 0, 0, -0.1},
-//     {-0.2, -0.2, -0.2, 0.4, 0.2, -0.2, 0.6},
+//     {1, 0.7, -1, 0, -0.1, 0, -0.4},
+//     {-0.2, 0.2, 1, 0, 0.5, 0, 0},
+//     {0, -0.2, 0.5, 1, 0, 0, 0.8},
+//     {0, 0, -0.2, 0.2, 1, 0, 0},
+//     {-0.4, 0, 0, -0.2, -1, 1, 0},
+//     {0, -1, 0, 0, -0.2, 0.1, 1},
+//     {1, 0, -0.8, 0, 0, -0.2, 0.1},
 // };
+
 // __constant__ float TYPE_INTERACTIONS[7][7] = {
 //     {1, 0, 0, 0, 0, 0, 0},
 //     {0, 1, 0, 0, 0, 0, 0},
